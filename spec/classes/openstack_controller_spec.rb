@@ -5,32 +5,40 @@ describe 'openstack::controller' do
   # minimum set of default parameters
   let :default_params do
     {
-      :private_interface     => 'eth0',
-      :public_interface      => 'eth1',
-      :internal_address      => '127.0.0.1',
-      :public_address        => '10.0.0.1',
-      :admin_email           => 'some_user@some_fake_email_address.foo',
-      :admin_password        => 'ChangeMe',
-      :rabbit_password       => 'rabbit_pw',
-      :rabbit_virtual_host   => '/',
-      :keystone_db_password  => 'keystone_pass',
-      :keystone_admin_token  => 'keystone_admin_token',
-      :glance_db_password    => 'glance_pass',
-      :glance_user_password  => 'glance_pass',
-      :nova_db_password      => 'nova_pass',
-      :nova_user_password    => 'nova_pass',
-      :secret_key            => 'secret_key',
-      :quantum               => false,
+      :private_interface       => 'eth0',
+      :public_interface        => 'eth1',
+      :internal_address        => '127.0.0.1',
+      :public_address          => '10.0.0.1',
+      :admin_email             => 'some_user@some_fake_email_address.foo',
+      :admin_password          => 'ChangeMe',
+      :rabbit_password         => 'rabbit_pw',
+      :rabbit_virtual_host     => '/',
+      :keystone_db_password    => 'keystone_pass',
+      :keystone_admin_token    => 'keystone_admin_token',
+      :glance_db_password      => 'glance_pass',
+      :glance_user_password    => 'glance_pass',
+      :nova_db_password        => 'nova_pass',
+      :nova_user_password      => 'nova_pass',
+      :cinder_db_password      => 'cinder_pass',
+      :cinder_user_password    => 'cinder_pass',
+      :secret_key              => 'secret_key',
+      :quantum                 => false,
+      :vncproxy_host           => '10.0.0.1',
+      :nova_admin_tenant_name  => 'services',
+      :nova_admin_user         => 'nova',
+      :enabled_apis            => 'ec2,osapi_compute,metadata',
     }
   end
 
   let :facts do
     {
-      :operatingsystem => 'Ubuntu',
-      :osfamily        => 'Debian',
-      :puppetversion   => '2.7.x',
-      :memorysize      => '2GB',
-      :processorcount  => '2'
+      :operatingsystem        => 'Ubuntu',
+      :osfamily               => 'Debian',
+      :operatingsystemrelease => '12.04',
+      :puppetversion          => '2.7.x',
+      :memorysize             => '2GB',
+      :processorcount         => '2',
+      :concat_basedir         => '/var/lib/puppet/concat',
     }
   end
 
@@ -56,10 +64,14 @@ describe 'openstack::controller' do
 
       let :params do
         default_params.merge(
-          :enabled => true,
-          :db_type => 'mysql',
-          :quantum => true,
-          :cinder  => true
+          :enabled                => true,
+          :db_type                => 'mysql',
+          :quantum                => true,
+          :metadata_shared_secret => 'secret',
+          :bridge_interface       => 'eth1',
+          :quantum_user_password  => 'q_pass',
+          :quantum_db_password    => 'q_db_pass',
+          :cinder                 => true
         )
       end
 
@@ -97,7 +109,7 @@ describe 'openstack::controller' do
          )
          should contain_class('quantum::db::mysql').with(
            :user          => 'quantum',
-           :password      => 'quantum_pass',
+           :password      => 'q_db_pass',
            :dbname        => 'quantum',
            :allowed_hosts => '%'
          )
@@ -117,7 +129,6 @@ describe 'openstack::controller' do
         )
       end
       it do
-        should contain_class('nova::volume')
         should_not contain_class('quantum::db::mysql')
         should_not contain_class('cinder::db::mysql')
       end
@@ -164,16 +175,23 @@ describe 'openstack::controller' do
         default_params
       end
 
-      it { should contain_class('keystone').with(
-        :verbose        => 'False',
-        :debug          => 'False',
-        :catalog_type   => 'sql',
-        :enabled        => true,
-        :admin_token    => 'keystone_admin_token',
-        :sql_connection => "mysql://keystone:keystone_pass@127.0.0.1/keystone"
-      ) }
+      it 'should configure default keystone configuration' do
 
-      it 'should contain endpoints' do
+        should contain_class('openstack::keystone').with(
+          :swift                => false,
+          :swift_user_password  => false,
+          :swift_public_address => false
+        )
+
+        should contain_class('keystone').with(
+          :verbose        => 'False',
+          :debug          => 'False',
+          :catalog_type   => 'sql',
+          :enabled        => true,
+          :admin_token    => 'keystone_admin_token',
+          :sql_connection => "mysql://keystone:keystone_pass@127.0.0.1/keystone"
+        )
+
         should contain_class('keystone::roles::admin').with(
           :email        => 'some_user@some_fake_email_address.foo',
           :password     => 'ChangeMe',
@@ -198,7 +216,23 @@ describe 'openstack::controller' do
             :admin_address    => '10.0.0.1',
             :region           => 'RegionOne'
           )
-         end
+        end
+      end
+      context 'when configuring swift' do
+        before :each do
+          params.merge!(
+            :swift                => true,
+            :swift_user_password  => 'foo',
+            :swift_public_address => '10.0.0.2'
+          )
+        end
+        it 'should configure swift auth in keystone' do
+          should contain_class('openstack::keystone').with(
+            :swift                => true,
+            :swift_user_password  => 'foo',
+            :swift_public_address => '10.0.0.2'
+          )
+        end
       end
     end
     context 'when not enabled' do
@@ -320,19 +354,22 @@ describe 'openstack::controller' do
   context 'config for nova' do
     let :facts do
       {
-        :operatingsystem => 'Ubuntu',
-        :osfamily        => 'Debian',
-        :puppetversion   => '2.7.x',
-        :memorysize      => '2GB',
-        :processorcount  => '2'
+        :operatingsystem        => 'Ubuntu',
+        :osfamily               => 'Debian',
+        :operatingsystemrelease => '12.04',
+        :puppetversion          => '2.7.x',
+        :memorysize             => '2GB',
+        :processorcount         => '2',
+        :concat_basedir         => '/var/lib/puppet/concat',
       }
     end
 
     context 'with default params' do
 
       it 'should contain enabled nova services' do
+        should_not contain_resources('nova_config').with_purge(true)
         should contain_class('nova::rabbitmq').with(
-          :userid       => 'nova',
+          :userid       => 'openstack',
           :password     => 'rabbit_pw',
           :virtual_host => '/',
           :enabled      => true
@@ -340,7 +377,7 @@ describe 'openstack::controller' do
         should contain_class('nova').with(
           :sql_connection      => 'mysql://nova:nova_pass@127.0.0.1/nova',
           :rabbit_host         => '127.0.0.1',
-          :rabbit_userid       => 'nova',
+          :rabbit_userid       => 'openstack',
           :rabbit_password     => 'rabbit_pw',
           :rabbit_virtual_host => '/',
           :image_service       => 'nova.image.glance.GlanceImageService',
@@ -351,21 +388,26 @@ describe 'openstack::controller' do
           :enabled           => true,
           :admin_tenant_name => 'services',
           :admin_user        => 'nova',
-          :admin_password    => 'nova_pass'
+          :admin_password    => 'nova_pass',
+          :enabled_apis      => 'ec2,osapi_compute,metadata'
         )
         should contain_class('nova::cert').with(:enabled => true)
         should contain_class('nova::consoleauth').with(:enabled => true)
         should contain_class('nova::scheduler').with(:enabled => true)
         should contain_class('nova::objectstore').with(:enabled => true)
-        should contain_class('nova::vncproxy').with(:enabled => true)
+        should contain_class('nova::conductor').with(:enabled => true)
+        should contain_class('nova::vncproxy').with(
+          :enabled         => true,
+          :host            => '10.0.0.1'
+        )
       end
-      it { should_not contain_nova_config('auto_assign_floating_ip') }
+      it { should_not contain_nova_config('DEFAULT/auto_assign_floating_ip') }
     end
     context 'when auto assign floating ip is assigned' do
       let :params do
         default_params.merge(:auto_assign_floating_ip => 'true')
       end
-      it { should contain_nova_config('auto_assign_floating_ip').with(:value => 'True')}
+      it { should contain_nova_config('DEFAULT/auto_assign_floating_ip').with(:value => 'True')}
     end
     context 'when not enabled' do
       let :params do
@@ -391,8 +433,6 @@ describe 'openstack::controller' do
         :secret_key        => 'secret_key',
         :cache_server_ip   => '127.0.0.1',
         :cache_server_port => '11211',
-        :swift             => false,
-        :quantum           => false,
         :horizon_app_links => false
       )
     end
@@ -403,6 +443,7 @@ describe 'openstack::controller' do
       end
       it { should_not contain_class('horizon') }
     end
+
   end
 
   context 'cinder' do
@@ -412,7 +453,7 @@ describe 'openstack::controller' do
         default_params.merge(:cinder => false)
       end
       it 'should not contain cinder classes' do
-        should_not contain_class('cinder::base')
+        should_not contain_class('cinder')
         should_not contain_class('cinder::api')
         should_not contain_class('cinder:"scheduler')
       end
@@ -423,7 +464,7 @@ describe 'openstack::controller' do
         default_params
       end
       it 'should configure cinder using defaults' do
-        should contain_class('cinder::base').with(
+        should contain_class('cinder').with(
           :verbose         => 'False',
           :sql_connection  => 'mysql://cinder:cinder_pass@127.0.0.1/cinder?charset=utf8',
           :rabbit_password => 'rabbit_pw'
@@ -437,6 +478,7 @@ describe 'openstack::controller' do
       let :params do
         default_params.merge(
           :verbose              => 'True',
+          :rabbit_user          => 'rabbituser',
           :rabbit_password      => 'rabbit_pw2',
           :cinder_user_password => 'foo',
           :cinder_db_password   => 'bar',
@@ -446,10 +488,11 @@ describe 'openstack::controller' do
         )
       end
       it 'should configure cinder using defaults' do
-        should contain_class('cinder::base').with(
+        should contain_class('cinder').with(
           :verbose         => 'True',
           :sql_connection  => 'mysql://baz:bar@127.0.0.2/blah?charset=utf8',
-          :rabbit_password => 'rabbit_pw2'
+          :rabbit_password => 'rabbit_pw2',
+          :rabbit_userid   => 'rabbituser'
         )
         should contain_class('cinder::api').with_keystone_password('foo')
         should contain_class('cinder::scheduler')
@@ -463,10 +506,48 @@ describe 'openstack::controller' do
     context 'when quantum' do
 
       let :params do
-        default_params.merge(:quantum => true)
+        default_params.merge({
+          :quantum => true,
+          :verbose => true,
+          :quantum_user_password  => 'q_pass',
+          :bridge_interface       => 'eth_27',
+          :internal_address       => '10.0.0.3',
+          :quantum_db_password    => 'q_db_pass',
+          :metadata_shared_secret => 'secret'
+        })
       end
 
       it { should_not contain_class('nova::network') }
+
+      it 'should configure quantum' do
+
+        should contain_class('openstack::quantum').with(
+          :db_host               => '127.0.0.1',
+          :rabbit_host           => '127.0.0.1',
+          :rabbit_user           => 'openstack',
+          :rabbit_password       => 'rabbit_pw',
+          :rabbit_virtual_host   => '/',
+          :ovs_local_ip          => '10.0.0.3',
+          :bridge_uplinks        => ["br-ex:eth_27"],
+          :bridge_mappings       => ["default:br-ex"],
+          :enable_ovs_agent      => true,
+          :firewall_driver       => 'quantum.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
+          :db_name               => 'quantum',
+          :db_user               => 'quantum',
+          :db_password           => 'q_db_pass',
+          :enable_dhcp_agent     => true,
+          :enable_l3_agent       => true,
+          :enable_metadata_agent => true,
+          :auth_url              => 'http://127.0.0.1:35357/v2.0',
+          :user_password         => 'q_pass',
+          :shared_secret         => 'secret',
+          :keystone_host         => '127.0.0.1',
+          :enabled               => true,
+          :enable_server         => true,
+          :verbose               => true
+        )
+
+      end
 
     end
 
@@ -495,7 +576,7 @@ describe 'openstack::controller' do
         let :params do
           default_params.merge(:quantum => false, :multi_host => true)
         end
-        it { should contain_nova_config('multi_host').with(:value => 'True')}
+        it { should contain_nova_config('DEFAULT/multi_host').with(:value => 'True')}
         it {should contain_class('nova::network').with(
           :create_networks   => true,
           :enabled           => false,
