@@ -177,6 +177,7 @@ class openstack::all (
   # VNC
   $vnc_enabled             = true,
   $vncproxy_host           = false,
+  $vncserver_listen        = false,
   # cinder
   # if the cinder management components should be installed
   $cinder                  = true,
@@ -184,6 +185,7 @@ class openstack::all (
   $cinder_db_dbname        = 'cinder',
   $cinder_bind_address     = '0.0.0.0',
   $manage_volumes          = true,
+  $setup_test_volume       = false,
   $volume_group            = 'cinder-volumes',
   $iscsi_ip_address        = '127.0.0.1',
   # Quantum
@@ -235,7 +237,7 @@ class openstack::all (
   if $glance_api_servers {
     $glance_api_servers_real = $glance_api_servers
   } else {
-    $glance_api_servers_real = "$internal_address_real:9292"
+    $glance_api_servers_real = "${internal_address_real}:9292"
   }
 
 
@@ -270,7 +272,7 @@ class openstack::all (
       quantum                => $quantum,
       quantum_db_user        => $quantum_db_user,
       quantum_db_password    => $quantum_db_password,
-      quantum_db_dbname      => $quantum_db_dbname,
+      quantum_db_dbname      => $quantum_db_name,
       allowed_hosts          => $allowed_hosts,
       enabled                => $enabled,
     }
@@ -383,8 +385,8 @@ class openstack::all (
     # Glance
     glance_api_servers      => $glance_api_servers_real,
     # VNC
-    vnc_enabled            => $vnc_enabled,
-    vncproxy_host          => $vncproxy_host_real,
+    vnc_enabled             => $vnc_enabled,
+    vncproxy_host           => $vncproxy_host_real,
     # General
     verbose                 => $verbose,
     enabled                 => $enabled,
@@ -443,7 +445,7 @@ class openstack::all (
   } else {
 
     if ! $fixed_range {
-      fail("Must specify the fixed range when using nova-networks")
+      fail('Must specify the fixed range when using nova-networks')
     }
 
     if $multi_host {
