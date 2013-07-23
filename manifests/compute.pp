@@ -7,9 +7,16 @@
 #   Whether unmanaged nova.conf entries should be purged.
 #   (optional) Defaults to false.
 #
+# [quantum_firewall_driver]
+#   Driver used to implement Quantum firewalling.
+#   (optional) Defaults to false.
+#
+# [rabbit_hosts] An array of IP addresses or Virttual IP address for connecting to a RabbitMQ Cluster.
+#   Optional. Defaults to false.
+#
 # === Examples
 #
-# class { 'openstack::nova::compute':
+# class { 'openstack::compute':
 #   internal_address   => '192.168.2.2',
 #   vncproxy_host      => '192.168.1.1',
 #   nova_user_password => 'changeme',
@@ -48,6 +55,7 @@ class openstack::compute (
   $keystone_host                 = '127.0.0.1',
   $quantum_host                  = '127.0.0.1',
   $ovs_local_ip                  = false,
+  $quantum_firewall_driver       = false,
   # Nova
   $nova_admin_tenant_name        = 'services',
   $nova_admin_user               = 'nova',
@@ -55,6 +63,7 @@ class openstack::compute (
   $libvirt_vif_driver            = 'nova.virt.libvirt.vif.LibvirtGenericVIFDriver',
   # Rabbit
   $rabbit_host                   = '127.0.0.1',
+  $rabbit_hosts                  = false,
   $rabbit_user                   = 'openstack',
   $rabbit_virtual_host           = '/',
   # Glance
@@ -67,12 +76,16 @@ class openstack::compute (
   $vncserver_listen              = false,
   # cinder / volumes
   $manage_volumes                = true,
+  $cinder_volume_driver          = 'iscsi',
   $cinder_db_password            = false,
   $cinder_db_user                = 'cinder',
   $cinder_db_name                = 'cinder',
   $volume_group                  = 'cinder-volumes',
   $iscsi_ip_address              = '127.0.0.1',
   $setup_test_volume             = false,
+  $cinder_rbd_user               = 'volumes',
+  $cinder_rbd_pool               = 'volumes',
+  $cinder_rbd_secret_uuid        = false,
   # General
   $migration_support             = false,
   $verbose                       = false,
@@ -114,6 +127,7 @@ class openstack::compute (
     glance_api_servers  => $glance_api_servers,
     verbose             => $verbose,
     rabbit_host         => $rabbit_host,
+    rabbit_hosts        => $rabbit_hosts,
     rabbit_virtual_host => $rabbit_virtual_host,
   }
 
@@ -196,7 +210,7 @@ class openstack::compute (
       rabbit_password   => $rabbit_password,
       # Quantum OVS
       enable_ovs_agent  => $enable_ovs_agent,
-      firewall_driver   => false,
+      firewall_driver   => $quantum_firewall_driver,
       # Quantum L3 Agent
       enable_l3_agent   => $enable_l3_agent,
       enable_dhcp_agent => $enable_dhcp_agent,
@@ -245,7 +259,10 @@ class openstack::compute (
       enabled             => $enabled,
       verbose             => $verbose,
       setup_test_volume   => $setup_test_volume,
-      volume_driver       => 'iscsi',
+      rbd_user            => $cinder_rbd_user,
+      rbd_pool            => $cinder_rbd_pool,
+      rbd_secret_uuid     => $cinter_rbd_secret_uuid,
+      volume_driver       => $cinder_volume_driver,
     }
 
     # set in nova::api

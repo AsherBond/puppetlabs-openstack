@@ -12,7 +12,7 @@ class openstack::cinder::controller(
   $keystone_service_port    = '5000',
   $rabbit_userid            = 'guest',
   $rabbit_host              = '127.0.0.1',
-  $rabbit_hosts             =  undef,
+  $rabbit_hosts             =  false,
   $rabbit_port              = '5672',
   $rabbit_virtual_host      = '/',
   # Database. Currently mysql is the only option.
@@ -20,6 +20,7 @@ class openstack::cinder::controller(
   $db_user                  = 'cinder',
   $db_host                  = '127.0.0.1',
   $db_dbname                = 'cinder',
+  $sql_idle_timeout         = '3600',
   $package_ensure           = present,
   $api_package_ensure       = present,
   $scheduler_package_ensure = present,
@@ -28,6 +29,7 @@ class openstack::cinder::controller(
   $scheduler_driver         = 'cinder.scheduler.simple.SimpleScheduler',
   $api_enabled              = true,
   $scheduler_enabled        = true,
+  $debug                    = false,
   $verbose                  = false
 ) {
 
@@ -41,6 +43,7 @@ class openstack::cinder::controller(
 
   class {'::cinder':
     sql_connection      => $sql_connection,
+    sql_idle_timeout    => $sql_idle_timeout,
     rpc_backend         => $rpc_backend,
     rabbit_userid       => $rabbit_userid,
     rabbit_password     => $rabbit_password,
@@ -50,6 +53,7 @@ class openstack::cinder::controller(
     rabbit_virtual_host => $rabbit_virtual_host,
     package_ensure      => $package_ensure,
     api_paste_config    => $api_paste_config,
+    debug               => $debug,
     verbose             => $verbose,
   }
 

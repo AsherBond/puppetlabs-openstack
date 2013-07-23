@@ -6,6 +6,21 @@
 #
 # === Parameters
 #
+# [memcached_servers]
+#   Use memcached instead of in-process cache.
+#   Supply a list of memcached server IP's:Memcached Port.
+#   (optional) Defaults to false.
+#
+# [api_bind_address]
+#   IP address to use for binding Nova API's.
+#   (optional) Defaults to '0.0.0.0'.
+#
+# [rabbit_hosts] An array of IP addresses or Virttual IP address for connecting to a RabbitMQ Cluster.
+#   Optional. Defaults to false.
+#
+# [rabbit_cluster_nodes] An array of Rabbit Broker IP addresses within the Cluster.
+#   Optional. Defaults to false.
+#
 # [quantum]
 #   Specifies if nova should be configured to use quantum.
 #   (optional) Defaults to false (indicating nova-networks should be used)
@@ -16,6 +31,10 @@
 # [metadata_shared_secret] Secret used to authenticate between nova and the
 #   quantum metadata services.
 #   (Optional). Defaults to undef.
+#
+# [sql_idle_timeout]
+#   Timeout for sql to reap connections.
+#   (Optional) Defaults to '3600'.
 #
 # === Examples
 #
@@ -61,11 +80,16 @@ class openstack::nova::controller (
   $nova_db_user              = 'nova',
   $nova_db_dbname            = 'nova',
   $enabled_apis              = 'ec2,osapi_compute,metadata',
+  $memcached_servers         = false,
+  $api_bind_address          = '0.0.0.0',
   # Rabbit
   $rabbit_user               = 'openstack',
   $rabbit_virtual_host       = '/',
+  $rabbit_hosts              = false,
+  $rabbit_cluster_nodes      = false,
   # Database
   $db_type                   = 'mysql',
+  $sql_idle_timeout          = '3600',
   # Glance
   $glance_api_servers        = undef,
   # VNC
@@ -74,6 +98,7 @@ class openstack::nova::controller (
   # Keystone
   $keystone_host             = '127.0.0.1',
   # General
+  $debug                     = false,
   $verbose                   = false,
   $enabled                   = true
 ) {
@@ -104,22 +129,27 @@ class openstack::nova::controller (
 
   # Install / configure rabbitmq
   class { 'nova::rabbitmq':
-    userid        => $rabbit_user,
-    password      => $rabbit_password,
-    enabled       => $enabled,
-    virtual_host  => $rabbit_virtual_host,
+    userid                 => $rabbit_user,
+    password               => $rabbit_password,
+    enabled                => $enabled,
+    cluster_disk_nodes     => $rabbit_cluster_nodes,
+    virtual_host           => $rabbit_virtual_host,
   }
 
   # Configure Nova
   class { 'nova':
     sql_connection       => $sql_connection,
+    sql_idle_timeout     => $sql_idle_timeout,
     rabbit_userid        => $rabbit_user,
     rabbit_password      => $rabbit_password,
     rabbit_virtual_host  => $rabbit_virtual_host,
     image_service        => 'nova.image.glance.GlanceImageService',
     glance_api_servers   => $glance_connection,
+    memcached_servers    => $memcached_servers,
+    debug                => $debug,
     verbose              => $verbose,
     rabbit_host          => $rabbit_connection,
+    rabbit_hosts         => $rabbit_hosts,
   }
 
   # Configure nova-api
@@ -129,6 +159,7 @@ class openstack::nova::controller (
     admin_user                           => $nova_admin_user,
     admin_password                       => $nova_user_password,
     enabled_apis                         => $enabled_apis,
+    api_bind_address                     => $api_bind_address,
     auth_host                            => $keystone_host,
     quantum_metadata_proxy_shared_secret => $metadata_shared_secret,
   }

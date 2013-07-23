@@ -74,6 +74,16 @@
 #    Whether ovs tunnels should be enabled.
 #    (optional) Defaults to true.
 #
+# [tenant_network_type]
+#   Type of network to allocate for tenant networks
+#   Optional. Defualts to 'gre'.
+#
+# [network_vlan_ranges]
+#   Comma-separated list of <physical_network>[:<vlan_min>:<vlan_max>]
+#   tuples enumerating ranges of VLAN IDs on named physical networks
+#   that are available for allocation.
+#   Optional. Defaults to 'physnet1:1000:2000'.
+#
 # [firewall_driver]
 #   Firewall driver to use.
 #   (optional) Defaults to undef.
@@ -110,6 +120,10 @@
 # [bind_address]
 #   Address quantum api server should bind to.
 #  (optional) Defaults to 0.0.0.0.
+#
+# [sql_idle_timeout]
+#   Timeout for sql to reap connections.
+#   (optional) Defaults to '3600'.
 #
 # [keystone_host]
 #   Host running keystone.
@@ -149,6 +163,8 @@ class openstack::quantum (
   $enable_metadata_agent  = false,
   $enable_ovs_agent       = false,
   # OVS settings
+  $tenant_network_type    = 'gre',
+  $network_vlan_ranges    = 'physnet1:1000:2000',
   $ovs_local_ip           = false,
   $ovs_enable_tunneling   = true,
   $bridge_uplinks         = [],
@@ -172,6 +188,7 @@ class openstack::quantum (
   $db_host                = '127.0.0.1',
   $db_name                = 'quantum',
   $db_user                = 'quantum',
+  $sql_idle_timeout       = '3600',
   # General
   $bind_address           = '0.0.0.0',
   $keystone_host          = '127.0.0.1',
@@ -206,7 +223,9 @@ class openstack::quantum (
     }
     class { 'quantum::plugins::ovs':
       sql_connection      => $sql_connection,
-      tenant_network_type => 'gre',
+      sql_idle_timeout    => $sql_idle_timeout,
+      tenant_network_type => $tenant_network_type,
+      network_vlan_ranges => $network_vlan_ranges,
     }
   }
 

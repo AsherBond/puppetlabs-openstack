@@ -9,6 +9,7 @@ describe 'openstack::compute' do
       :nova_user_password        => 'nova_pass',
       :rabbit_password           => 'rabbit_pw',
       :rabbit_host               => '127.0.0.1',
+      :rabbit_hosts              => false,
       :rabbit_virtual_host       => '/',
       :nova_admin_tenant_name    => 'services',
       :nova_admin_user           => 'nova',
@@ -32,6 +33,7 @@ describe 'openstack::compute' do
       should contain_class('nova').with(
         :sql_connection      => 'mysql://nova:pass@127.0.0.1/nova',
         :rabbit_host         => '127.0.0.1',
+        :rabbit_hosts        => false,
         :rabbit_userid       => 'openstack',
         :rabbit_password     => 'rabbit_pw',
         :rabbit_virtual_host => '/',
@@ -71,6 +73,7 @@ describe 'openstack::compute' do
         :rabbit_password     => 'rabbit_pw',
         :rabbit_userid       => 'openstack',
         :rabbit_host         => '127.0.0.1',
+        :rabbit_hosts        => false,
         :rabbit_virtual_host => '/',
         :volume_group        => 'cinder-volumes',
         :iscsi_ip_address    => '127.0.0.1',
@@ -92,6 +95,7 @@ describe 'openstack::compute' do
         :nova_db_user        => 'nova_user',
         :nova_db_name        => 'novadb',
         :rabbit_host         => 'my_host',
+        :rabbit_hosts        => ['rabbit:5673', 'rabbit2:5674'],
         :rabbit_password     => 'my_rabbit_pw',
         :rabbit_user         => 'my_rabbit_user',
         :rabbit_virtual_host => '/foo',
@@ -106,6 +110,7 @@ describe 'openstack::compute' do
       should contain_class('nova').with(
         :sql_connection      => 'mysql://nova_user:pass@127.0.0.1/novadb',
         :rabbit_host         => 'my_host',
+        :rabbit_hosts        => ['rabbit:5673', 'rabbit2:5674'],
         :rabbit_userid       => 'my_rabbit_user',
         :rabbit_password     => 'my_rabbit_pw',
         :rabbit_virtual_host => '/foo',
@@ -146,6 +151,33 @@ describe 'openstack::compute' do
     end
     it { should_not contain_class('openstack::cinder::storage') }
 
+  end
+
+  context 'with rbd storage' do
+    before do
+      params.merge!(
+          :cinder_volume_driver => 'rbd',
+          :cinder_rbd_user      => 'volumes',
+          :cinder_rbd_pool      => 'volumes'
+      )
+    end
+    it do
+      should contain_class('openstack::cinder::storage').with(
+                 :sql_connection      => 'mysql://cinder:cinder_pass@127.0.0.1/cinder',
+                 :rabbit_password     => 'rabbit_pw',
+                 :rabbit_userid       => 'openstack',
+                 :rabbit_host         => '127.0.0.1',
+                 :rabbit_virtual_host => '/',
+                 :volume_group        => 'cinder-volumes',
+                 :iscsi_ip_address    => '127.0.0.1',
+                 :enabled             => true,
+                 :verbose             => false,
+                 :setup_test_volume   => false,
+                 :rbd_user            => 'volumes',
+                 :rbd_pool            => 'volumes',
+                 :volume_driver       => 'rbd'
+             )
+    end
   end
 
   describe 'when quantum is false' do
@@ -241,12 +273,13 @@ describe 'openstack::compute' do
   describe 'when configuring quantum' do
     before do
       params.merge!(
-        :internal_address      => '127.0.0.1',
-        :public_interface      => 'eth3',
-        :quantum               => true,
-        :keystone_host         => '127.0.0.3',
-        :quantum_host          => '127.0.0.2',
-        :quantum_user_password => 'quantum_user_password'
+        :internal_address        => '127.0.0.1',
+        :public_interface        => 'eth3',
+        :quantum                 => true,
+        :keystone_host           => '127.0.0.3',
+        :quantum_host            => '127.0.0.2',
+        :quantum_user_password   => 'quantum_user_password',
+        :quantum_firewall_driver => false
       )
     end
 
@@ -255,10 +288,11 @@ describe 'openstack::compute' do
         :db_host           => '127.0.0.1',
         :ovs_local_ip      => params[:internal_address],
         :rabbit_host       => params[:rabbit_host],
+        :rabbit_hosts      => params[:rabbit_hosts],
         :rabbit_user       => 'openstack',
         :rabbit_password   => params[:rabbit_password],
         :enable_ovs_agent  => true,
-        :firewall_driver   => false,
+        :firewall_driver   => params[:quantum_firewall_driver],
         :enable_l3_agent   => false,
         :enable_dhcp_agent => false,
         :auth_url          => 'http://127.0.0.1:35357/v2.0',
