@@ -16,6 +16,7 @@ describe 'openstack::controller' do
       :rabbit_virtual_host     => '/',
       :keystone_db_password    => 'keystone_pass',
       :keystone_admin_token    => 'keystone_admin_token',
+      :glance_registry_host    => '0.0.0.0',
       :glance_db_password      => 'glance_pass',
       :glance_user_password    => 'glance_pass',
       :nova_bind_address       => '0.0.0.0',
@@ -30,6 +31,7 @@ describe 'openstack::controller' do
       :nova_admin_tenant_name  => 'services',
       :nova_admin_user         => 'nova',
       :enabled_apis            => 'ec2,osapi_compute,metadata',
+      :physical_network        => 'default'
     }
   end
 
@@ -202,6 +204,7 @@ describe 'openstack::controller' do
         )
         should contain_class('keystone::endpoint').with(
           :public_address   => '10.0.0.1',
+          :public_protocol  => 'http',
           :internal_address => '127.0.0.1',
           :admin_address    => '127.0.0.1',
           :region           => 'RegionOne'
@@ -215,8 +218,9 @@ describe 'openstack::controller' do
           should contain_class("#{type}::keystone::auth").with(
             :password         => pw,
             :public_address   => '10.0.0.1',
-            :internal_address => '10.0.0.1',
-            :admin_address    => '10.0.0.1',
+            :public_protocol  => 'http',
+            :internal_address => '127.0.0.1',
+            :admin_address    => '127.0.0.1',
             :region           => 'RegionOne'
           )
         end
@@ -252,6 +256,46 @@ describe 'openstack::controller' do
         should_not contain_class('nova::keystone::auth')
       end
     end
+
+    context 'when public_protocol is set to https' do
+
+      let :params do
+        default_params.merge(:public_protocol => 'https')
+      end
+
+      it 'should propagate it to the endpoints' do
+        should contain_class('keystone::endpoint').with(:public_protocol => 'https')
+        should contain_class('glance::keystone::auth').with(:public_protocol => 'https')
+        should contain_class('nova::keystone::auth').with(:public_protocol => 'https')
+        should contain_class('cinder::keystone::auth').with(:public_protocol => 'https')
+      end
+    end
+
+    context 'with different public, internal and admin addresses' do
+      let :params do
+        default_params.merge(
+          :public_address   => '1.1.1.1',
+          :internal_address => '2.2.2.2',
+          :admin_address    => '3.3.3.3'
+        )
+      end
+
+      it 'should set addresses in subclasses' do
+        should contain_class('keystone::endpoint').with(
+          :public_address   => '1.1.1.1',
+          :internal_address => '2.2.2.2',
+          :admin_address    => '3.3.3.3'
+        )
+
+        ['nova', 'cinder', 'glance'].each do |type|
+          should contain_class("#{type}::keystone::auth").with(
+            :public_address   => '1.1.1.1',
+            :internal_address => '2.2.2.2',
+            :admin_address    => '3.3.3.3'
+          )
+        end
+      end
+    end
   end
 
   it do
@@ -276,6 +320,7 @@ describe 'openstack::controller' do
           :keystone_tenant   => 'services',
           :keystone_user     => 'glance',
           :keystone_password => 'glance_pass',
+          :registry_host     => '0.0.0.0',
           :sql_connection    => 'mysql://glance:glance_pass@127.0.0.1/glance',
           :enabled           => true
         )
@@ -318,6 +363,7 @@ describe 'openstack::controller' do
         default_params.merge(
           :verbose               => false,
           :debug                 => false,
+          :glance_registry_host  => '127.0.0.2',
           :glance_user_password  => 'glance_pass2',
           :glance_db_password    => 'glance_pass3',
           :db_host               => '127.0.0.2',
@@ -332,6 +378,7 @@ describe 'openstack::controller' do
         should contain_class('glance::api').with(
           :verbose           => false,
           :debug             => false,
+          :registry_host     => '127.0.0.2',
           :auth_type         => 'keystone',
           :auth_host         => '127.0.0.1',
           :auth_port         => '35357',
@@ -543,7 +590,8 @@ describe 'openstack::controller' do
           :bridge_interface       => 'eth_27',
           :internal_address       => '10.0.0.3',
           :quantum_db_password    => 'q_db_pass',
-          :metadata_shared_secret => 'secret'
+          :metadata_shared_secret => 'secret',
+          :external_bridge_name   => 'br-ex'
         })
       end
 
@@ -560,7 +608,6 @@ describe 'openstack::controller' do
           :rabbit_password       => 'rabbit_pw',
           :rabbit_virtual_host   => '/',
           :tenant_network_type   => 'gre',
-          :network_vlan_ranges   => 'physnet1:1000:2000',
           :ovs_enable_tunneling  => true,
           :ovs_local_ip          => '10.0.0.3',
           :bridge_uplinks        => ["br-ex:eth_27"],

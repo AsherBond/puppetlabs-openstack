@@ -68,7 +68,7 @@
 #
 # [ovs_local_ip]
 #   Ip address to use for tunnel endpoint.
-#   Only required when ovs is enabled. No default.
+#   Only required when tenant_network_type is 'gre'. No default.
 #
 # [ovs_enable_tunneling]
 #    Whether ovs tunnels should be enabled.
@@ -164,7 +164,7 @@ class openstack::quantum (
   $enable_ovs_agent       = false,
   # OVS settings
   $tenant_network_type    = 'gre',
-  $network_vlan_ranges    = 'physnet1:1000:2000',
+  $network_vlan_ranges    = undef,
   $ovs_local_ip           = false,
   $ovs_enable_tunneling   = true,
   $bridge_uplinks         = [],
@@ -189,6 +189,8 @@ class openstack::quantum (
   $db_name                = 'quantum',
   $db_user                = 'quantum',
   $sql_idle_timeout       = '3600',
+  # Plugin
+  $core_plugin            = undef,
   # General
   $bind_address           = '0.0.0.0',
   $keystone_host          = '127.0.0.1',
@@ -198,6 +200,7 @@ class openstack::quantum (
 
   class { '::quantum':
     enabled             => $enabled,
+    core_plugin         => $core_plugin,
     bind_host           => $bind_address,
     rabbit_host         => $rabbit_host,
     rabbit_hosts        => $rabbit_hosts,
@@ -230,9 +233,6 @@ class openstack::quantum (
   }
 
   if $enable_ovs_agent {
-    if ! $ovs_local_ip {
-      fail('ovs_local_ip parameter must be set when using ovs agent')
-    }
     class { 'quantum::agents::ovs':
       bridge_uplinks   => $bridge_uplinks,
       bridge_mappings  => $bridge_mappings,
@@ -245,11 +245,13 @@ class openstack::quantum (
   if $enable_dhcp_agent {
     class { 'quantum::agents::dhcp':
       use_namespaces => true,
+      debug          => $debug,
     }
   }
   if $enable_l3_agent {
     class { 'quantum::agents::l3':
       use_namespaces => true,
+      debug          => $debug,
     }
   }
 
@@ -262,6 +264,7 @@ class openstack::quantum (
       shared_secret  => $shared_secret,
       auth_url       => $auth_url,
       metadata_ip    => $metadata_ip,
+      debug          => $debug,
     }
   }
 

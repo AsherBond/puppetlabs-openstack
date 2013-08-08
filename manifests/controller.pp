@@ -5,6 +5,7 @@
 #
 # [public_interface] Public interface used to route public traffic. Required.
 # [public_address] Public address for public endpoints. Required.
+# [public_protocol] Protocol used by public endpoints. Defaults to 'http'
 # [private_interface] Interface used for vm networking connectivity. Required.
 # [internal_address] Internal address used for management. Required.
 # [mysql_root_password] Root password for mysql server.
@@ -15,6 +16,8 @@
 # [keystone_db_password] Keystone database password.
 # [keystone_admin_token] Admin token for keystone.
 # [keystone_bind_address] Address that keystone api service should bind to.
+#   Optional. Defaults to '0.0.0.0'.
+# [glance_registry_host] Address used by Glance API to find the Glance Registry service.
 #   Optional. Defaults to '0.0.0.0'.
 # [glance_db_password] Glance DB password.
 # [glance_user_password] Glance service user password.
@@ -144,6 +147,7 @@ class openstack::controller (
   # optional. Not sure what to do about this.
   $quantum_user_password   = false,
   $quantum_db_password     = false,
+  $quantum_core_plugin     = undef,
   $cinder_user_password    = false,
   $cinder_db_password      = false,
   $swift_user_password     = false,
@@ -161,7 +165,9 @@ class openstack::controller (
   $keystone_admin_tenant   = 'admin',
   $keystone_bind_address   = '0.0.0.0',
   $region                  = 'RegionOne',
+  $public_protocol         = 'http',
   # Glance
+  $glance_registry_host    = '0.0.0.0',
   $glance_db_user          = 'glance',
   $glance_db_dbname        = 'glance',
   $glance_api_servers      = undef,
@@ -219,9 +225,11 @@ class openstack::controller (
   $tenant_network_type     = 'gre',
   $ovs_enable_tunneling    = true,
   $ovs_local_ip            = false,
-  $network_vlan_ranges     = 'physnet1:1000:2000',
+  $network_vlan_ranges     = undef,
   $bridge_interface        = undef,
   $external_bridge_name    = 'br-ex',
+  $bridge_uplinks          = undef,
+  $bridge_mappings         = undef,
   $enable_ovs_agent        = true,
   $enable_dhcp_agent       = true,
   $enable_l3_agent         = true,
@@ -301,33 +309,44 @@ class openstack::controller (
 
   ####### KEYSTONE ###########
   class { 'openstack::keystone':
-    debug                 => $debug,
-    verbose               => $verbose,
-    db_type               => $db_type,
-    db_host               => $db_host,
-    db_password           => $keystone_db_password,
-    db_name               => $keystone_db_dbname,
-    db_user               => $keystone_db_user,
-    idle_timeout          => $sql_idle_timeout,
-    admin_token           => $keystone_admin_token,
-    admin_tenant          => $keystone_admin_tenant,
-    admin_email           => $admin_email,
-    admin_password        => $admin_password,
-    public_address        => $public_address,
-    internal_address      => $internal_address_real,
-    admin_address         => $admin_address_real,
-    region                => $region,
-    glance_user_password  => $glance_user_password,
-    nova_user_password    => $nova_user_password,
-    cinder                => $cinder,
-    cinder_user_password  => $cinder_user_password,
-    quantum               => $quantum,
-    quantum_user_password => $quantum_user_password,
-    swift                 => $swift,
-    swift_user_password   => $swift_user_password,
-    swift_public_address  => $swift_public_address,
-    enabled               => $enabled,
-    bind_host             => $keystone_bind_address,
+    debug                     => $debug,
+    verbose                   => $verbose,
+    db_type                   => $db_type,
+    db_host                   => $db_host,
+    db_password               => $keystone_db_password,
+    db_name                   => $keystone_db_dbname,
+    db_user                   => $keystone_db_user,
+    idle_timeout              => $sql_idle_timeout,
+    admin_token               => $keystone_admin_token,
+    admin_tenant              => $keystone_admin_tenant,
+    admin_email               => $admin_email,
+    admin_password            => $admin_password,
+    public_address            => $public_address,
+    public_protocol           => $public_protocol,
+    internal_address          => $internal_address_real,
+    admin_address             => $admin_address_real,
+    region                    => $region,
+    glance_user_password      => $glance_user_password,
+    glance_internal_address   => $internal_address_real,
+    glance_admin_address      => $admin_address_real,
+    nova_user_password        => $nova_user_password,
+    nova_internal_address     => $internal_address_real,
+    nova_admin_address        => $admin_address_real,
+    cinder                    => $cinder,
+    cinder_user_password      => $cinder_user_password,
+    cinder_internal_address   => $internal_address_real,
+    cinder_admin_address      => $admin_address_real,
+    quantum                   => $quantum,
+    quantum_user_password     => $quantum_user_password,
+    quantum_internal_address  => $internal_address_real,
+    quantum_admin_address     => $admin_address_real,
+    swift                     => $swift,
+    swift_user_password       => $swift_user_password,
+    swift_public_address      => $swift_public_address,
+    swift_internal_address    => $internal_address_real,
+    swift_admin_address       => $admin_address_real,
+    enabled                   => $enabled,
+    bind_host                 => $keystone_bind_address,
   }
 
 
@@ -339,6 +358,7 @@ class openstack::controller (
     db_host          => $db_host,
     sql_idle_timeout => $sql_idle_timeout,
     keystone_host    => $keystone_host,
+    registry_host    => $glance_registry_host,
     db_user          => $glance_db_user,
     db_name          => $glance_db_dbname,
     db_password      => $glance_db_password,
@@ -423,6 +443,18 @@ class openstack::controller (
       fail('bridge_interface must be set when configuring quantum')
     }
 
+    if ! $bridge_uplinks {
+      $bridge_uplinks_real = ["${external_bridge_name}:${bridge_interface}"]
+    } else {
+      $bridge_uplinks_real = $bridge_uplinks
+    }
+
+    if ! $bridge_mappings {
+      $bridge_mappings_real  = ["${physical_network}:${external_bridge_name}"]
+    } else {
+      $bridge_mappings_real  = $bridge_mappings
+    }
+
     class { 'openstack::quantum':
       # Database
       db_host               => $db_host,
@@ -438,14 +470,16 @@ class openstack::controller (
       network_vlan_ranges   => $network_vlan_ranges,
       ovs_enable_tunneling  => $ovs_enable_tunneling,
       ovs_local_ip          => $ovs_local_ip_real,
-      bridge_uplinks        => ["${external_bridge_name}:${bridge_interface}"],
-      bridge_mappings       => ["${physical_network}:${external_bridge_name}"],
+      bridge_uplinks        => $bridge_uplinks_real,
+      bridge_mappings       => $bridge_mappings_real,
       enable_ovs_agent      => $enable_ovs_agent,
       firewall_driver       => $firewall_driver,
       # Database
       db_name               => $quantum_db_name,
       db_user               => $quantum_db_user,
       db_password           => $quantum_db_password,
+      # Plugin
+      core_plugin           => $quantum_core_plugin,
       # Quantum agents
       enable_dhcp_agent     => $enable_dhcp_agent,
       enable_l3_agent       => $enable_l3_agent,
