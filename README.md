@@ -161,7 +161,7 @@ class { 'openstack::all':
   libvirt_type         => 'kvm',
   fixed_range          => '10.0.0.0/24',
   secret_key           => '12345',
-  quantum              => false,
+  neutron              => false,
 }
 ```
 
@@ -207,7 +207,7 @@ class { 'openstack::controller':
   rabbit_password         => 'rabbit_password',
   rabbit_user             => 'rabbit_user',
   secret_key              => '12345',
-  quantum                 => false,
+  neutron                 => false,
 }
 ```
 
@@ -241,7 +241,7 @@ class { 'openstack::compute':
   vncproxy_host      => '192.168.101.10',
   vnc_enabled        => true,
   manage_volumes     => true,
-  quantum            => false,
+  neutron            => false,
 }
 ```
 
@@ -514,8 +514,8 @@ Release Notes
 
 **2.1.0**
 
-* Added support for Quantum OVS VLAN networking.
-* Added Quantum firewall driver at top scope parameter.
+* Added support for Neutron OVS VLAN networking.
+* Added Neutron firewall driver at top scope parameter.
 * Added support for Glance Registry MySQL Idle Timeout
 * Added support for debug logging.
 * Added rdb/ceph backend support to Glance.
@@ -532,7 +532,7 @@ Release Notes
 * Added configuration for Swift auth in controller.
 * Reintroduces support for provider networks.
 * Propogates both internal and admin addresses to services.
-* Passes through quantum core plugin.
+* Passes through neutron core plugin.
 * Exposes public_protocol parameter in openstack::controller.
 * Exposes Glance registry_host parameter.
 * Fixed authentication host parameter bug to use real_keystone_host.
@@ -547,7 +547,7 @@ Release Notes
 **2.0.0**
 
 * Upstream is now part of stackfoge.
-* Initial support for the utilization of the quantum module.
+* Initial support for the utilization of the neutron module.
 * Ability to set vncproxy host.
 * Refactors of db connections for compute.
 * Refactor of glance and cinder related classes.
