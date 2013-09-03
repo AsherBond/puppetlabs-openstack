@@ -16,6 +16,7 @@ describe 'openstack::controller' do
       :rabbit_virtual_host     => '/',
       :keystone_db_password    => 'keystone_pass',
       :keystone_admin_token    => 'keystone_admin_token',
+      :keystone_token_driver   => 'keystone.token.backends.sql.Token',
       :glance_registry_host    => '0.0.0.0',
       :glance_db_password      => 'glance_pass',
       :glance_user_password    => 'glance_pass',
@@ -160,7 +161,7 @@ describe 'openstack::controller' do
       end
     end
 
-    context 'when account secutiry is not enabled' do
+    context 'when account security is not enabled' do
       let :params do
         default_params.merge(
           {:mysql_account_security => false}
@@ -183,9 +184,11 @@ describe 'openstack::controller' do
       it 'should configure default keystone configuration' do
 
         should contain_class('openstack::keystone').with(
-          :swift                => false,
-          :swift_user_password  => false,
-          :swift_public_address => false
+          :swift                  => false,
+          :swift_user_password    => false,
+          :swift_public_address   => false,
+          :swift_internal_address => false,
+          :swift_admin_address    => false
         )
 
         should contain_class('keystone').with(
@@ -194,6 +197,8 @@ describe 'openstack::controller' do
           :catalog_type   => 'sql',
           :enabled        => true,
           :admin_token    => 'keystone_admin_token',
+          :token_driver   => 'keystone.token.backends.sql.Token',
+          :token_format   => 'PKI',
           :sql_connection => "mysql://keystone:keystone_pass@127.0.0.1/keystone"
         )
 
@@ -228,16 +233,20 @@ describe 'openstack::controller' do
       context 'when configuring swift' do
         before :each do
           params.merge!(
-            :swift                => true,
-            :swift_user_password  => 'foo',
-            :swift_public_address => '10.0.0.2'
+            :swift                  => true,
+            :swift_user_password    => 'foo',
+            :swift_public_address   => '10.0.0.2',
+            :swift_internal_address => '10.0.0.2',
+            :swift_admin_address    => '10.0.0.2'
           )
         end
         it 'should configure swift auth in keystone' do
           should contain_class('openstack::keystone').with(
-            :swift                => true,
-            :swift_user_password  => 'foo',
-            :swift_public_address => '10.0.0.2'
+            :swift                  => true,
+            :swift_user_password    => 'foo',
+            :swift_public_address   => '10.0.0.2',
+            :swift_internal_address => '10.0.0.2',
+            :swift_admin_address    => '10.0.0.2'
           )
         end
       end
@@ -370,6 +379,9 @@ describe 'openstack::controller' do
           :sql_idle_timeout      => '30',
           :glance_db_user        => 'dan',
           :glance_db_dbname      => 'name',
+          :glance_backend        => 'rbd',
+          :glance_rbd_store_user => 'myuser',
+          :glance_rbd_store_pool => 'mypool',
           :db_host               => '127.0.0.2'
         )
       end
@@ -399,6 +411,21 @@ describe 'openstack::controller' do
           :keystone_user     => 'glance',
           :keystone_password => 'glance_pass2',
           :sql_connection    => "mysql://dan:glance_pass3@127.0.0.2/name"
+        )
+      end
+    end
+
+    context 'when the RBD backend is configured' do
+       let :params do
+        default_params.merge(
+          :glance_backend        => 'rbd',
+          :glance_rbd_store_user => 'myuser',
+          :glance_rbd_store_pool => 'mypool'
+        )
+
+        should contain_class('glance::backend::rbd').with(
+          :rbd_store_user => 'myuser',
+          :rbd_store_pool => 'mypool'
         )
       end
     end
@@ -523,7 +550,8 @@ describe 'openstack::controller' do
       it 'should not contain cinder classes' do
         should_not contain_class('cinder')
         should_not contain_class('cinder::api')
-        should_not contain_class('cinder:"scheduler')
+        should_not contain_class('cinder::scheduler')
+        should_not contain_class('cinder::volume')
       end
     end
 
@@ -596,6 +624,8 @@ describe 'openstack::controller' do
       end
 
       it { should_not contain_class('nova::network') }
+
+      it { should contain_class('nova::network::neutron').with(:security_group_api => 'neutron') }
 
       it 'should configure neutron' do
 

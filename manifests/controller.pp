@@ -6,6 +6,8 @@
 # [public_interface] Public interface used to route public traffic. Required.
 # [public_address] Public address for public endpoints. Required.
 # [public_protocol] Protocol used by public endpoints. Defaults to 'http'
+# [token_format] Format keystone uses for tokens. Optional. Defaults to PKI.
+#   Supports PKI and UUID.
 # [private_interface] Interface used for vm networking connectivity. Required.
 # [internal_address] Internal address used for management. Required.
 # [mysql_root_password] Root password for mysql server.
@@ -17,6 +19,8 @@
 # [keystone_admin_token] Admin token for keystone.
 # [keystone_bind_address] Address that keystone api service should bind to.
 #   Optional. Defaults to '0.0.0.0'.
+# [keystone_token_driver] Driver to use for managing tokens.
+#   Optional.  Defaults to 'keystone.token.backends.sql.Token'
 # [glance_registry_host] Address used by Glance API to find the Glance Registry service.
 #   Optional. Defaults to '0.0.0.0'.
 # [glance_db_password] Glance DB password.
@@ -108,7 +112,15 @@
 #   (Optional) Defaults to false. Required if swift is set to true.
 #
 # [swift_public_address]
-#   The swift address used to populate the keystone service catalog.
+#   The swift public endpoint address used to populate the keystone service catalog.
+#   (optional). Defaults to false.
+#
+# [swift_internal_address]
+#   The swift internal endpoint address used to populate the keystone service catalog.
+#   (optional). Defaults to false.
+#
+# [swift_admin_address]
+#   The swift admin endpoint address used to populate the keystone service catalog.
 #   (optional). Defaults to false.
 #
 # === Examples
@@ -166,12 +178,16 @@ class openstack::controller (
   $keystone_bind_address   = '0.0.0.0',
   $region                  = 'RegionOne',
   $public_protocol         = 'http',
+  $keystone_token_driver   = 'keystone.token.backends.sql.Token',
+  $token_format            = 'PKI',
   # Glance
   $glance_registry_host    = '0.0.0.0',
   $glance_db_user          = 'glance',
   $glance_db_dbname        = 'glance',
   $glance_api_servers      = undef,
   $glance_backend          = 'file',
+  $glance_rbd_store_user   = undef,
+  $glance_rbd_store_pool   = undef,
   # Glance Swift Backend
   $swift_store_user        = 'swift_store_user',
   $swift_store_key         = 'swift_store_key',
@@ -219,6 +235,10 @@ class openstack::controller (
   $cinder_db_user          = 'cinder',
   $cinder_db_dbname        = 'cinder',
   $cinder_bind_address     = '0.0.0.0',
+  $manage_volumes          = false,
+  $volume_group            = 'cinder-volumes',
+  $setup_test_volume       = false,
+  $iscsi_ip_address        = '127.0.0.1',
   # Neutron
   $neutron                 = true,
   $physical_network        = 'default',
@@ -240,9 +260,12 @@ class openstack::controller (
   $neutron_db_name         = 'neutron',
   $neutron_auth_url        = 'http://127.0.0.1:35357/v2.0',
   $enable_neutron_server   = true,
+  $security_group_api      = 'neutron',
   # swift
   $swift                   = false,
   $swift_public_address    = false,
+  $swift_internal_address  = false,
+  $swift_admin_address     = false,
   $enabled                 = true
 ) {
 
@@ -321,8 +344,10 @@ class openstack::controller (
     admin_tenant              => $keystone_admin_tenant,
     admin_email               => $admin_email,
     admin_password            => $admin_password,
+    token_driver              => $keystone_token_driver,
     public_address            => $public_address,
     public_protocol           => $public_protocol,
+    token_format              => $token_format,
     internal_address          => $internal_address_real,
     admin_address             => $admin_address_real,
     region                    => $region,
@@ -343,8 +368,8 @@ class openstack::controller (
     swift                     => $swift,
     swift_user_password       => $swift_user_password,
     swift_public_address      => $swift_public_address,
-    swift_internal_address    => $internal_address_real,
-    swift_admin_address       => $admin_address_real,
+    swift_internal_address    => $swift_internal_address,
+    swift_admin_address       => $swift_admin_address,
     enabled                   => $enabled,
     bind_host                 => $keystone_bind_address,
   }
@@ -366,6 +391,8 @@ class openstack::controller (
     backend          => $glance_backend,
     swift_store_user => $swift_store_user,
     swift_store_key  => $swift_store_key,
+    rbd_store_user   => $glance_rbd_store_user,
+    rbd_store_pool   => $glance_rbd_store_pool,
     enabled          => $enabled,
   }
 
@@ -402,6 +429,7 @@ class openstack::controller (
     neutron                 => $neutron,
     neutron_user_password   => $neutron_user_password,
     metadata_shared_secret  => $metadata_shared_secret,
+    security_group_api      => $security_group_api,
     # Nova
     nova_admin_tenant_name  => $nova_admin_tenant_name,
     nova_admin_user         => $nova_admin_user,
@@ -508,7 +536,7 @@ class openstack::controller (
       fail('Must set cinder user password when setting up a cinder controller')
     }
 
-    class { 'openstack::cinder::controller':
+    class { 'openstack::cinder::all':
       bind_host          => $cinder_bind_address,
       sql_idle_timeout   => $sql_idle_timeout,
       keystone_auth_host => $keystone_host,
@@ -522,8 +550,11 @@ class openstack::controller (
       db_user            => $cinder_db_user,
       db_type            => $db_type,
       db_host            => $db_host,
-      api_enabled        => $enabled,
-      scheduler_enabled  => $enabled,
+      manage_volumes     => $manage_volumes,
+      volume_group       => $volume_group,
+      setup_test_volume  => $setup_test_volume,
+      iscsi_ip_address   => $iscsi_ip_address,
+      enabled            => $enabled,
       debug              => $debug,
       verbose            => $verbose
     }

@@ -63,6 +63,7 @@ class openstack::compute (
   $neutron_firewall_driver       = false,
   $bridge_mappings               = undef,
   $bridge_uplinks                = undef,
+  $security_group_api            = 'neutron',
   # Nova
   $nova_admin_tenant_name        = 'services',
   $nova_admin_user               = 'nova',
@@ -96,6 +97,7 @@ class openstack::compute (
   # General
   $migration_support             = false,
   $verbose                       = false,
+  $force_config_drive            = false,
   $enabled                       = true
 ) {
 
@@ -144,6 +146,7 @@ class openstack::compute (
     vnc_enabled                   => $vnc_enabled,
     vncserver_proxyclient_address => $internal_address,
     vncproxy_host                 => $vncproxy_host,
+    force_config_drive            => $force_config_drive,
   }
 
   # Configure libvirt for nova-compute
@@ -246,6 +249,7 @@ class openstack::compute (
       neutron_admin_username    => $neutron_admin_user,
       neutron_admin_tenant_name => $neutron_admin_tenant_name,
       neutron_admin_auth_url    => "http://${keystone_host}:35357/v2.0",
+      security_group_api        => $security_group_api
     }
 
   }

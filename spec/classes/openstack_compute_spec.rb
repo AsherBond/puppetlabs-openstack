@@ -46,7 +46,8 @@ describe 'openstack::compute' do
         :enabled                        => true,
         :vnc_enabled                    => true,
         :vncserver_proxyclient_address  => '127.0.0.2',
-        :vncproxy_host                  => false
+        :vncproxy_host                  => false,
+        :force_config_drive             => false
       )
       should contain_class('nova::compute::libvirt').with(
         :libvirt_type     => 'kvm',
@@ -103,6 +104,7 @@ describe 'openstack::compute' do
         :libvirt_type        => 'qemu',
         :vncproxy_host       => '127.0.0.2',
         :vnc_enabled         => false,
+        :force_config_drive  => true,
         :verbose             => true
       )
     end
@@ -122,7 +124,8 @@ describe 'openstack::compute' do
         :enabled                        => true,
         :vnc_enabled                    => false,
         :vncserver_proxyclient_address  => '127.0.0.1',
-        :vncproxy_host                  => '127.0.0.2'
+        :vncproxy_host                  => '127.0.0.2',
+        :force_config_drive             => true
       )
       should contain_class('nova::compute::libvirt').with(
         :libvirt_type     => 'qemu',
@@ -315,7 +318,8 @@ describe 'openstack::compute' do
         :neutron_url               => "http://127.0.0.2:9696",
         :neutron_admin_tenant_name => 'services',
         :neutron_admin_username    => 'neutron',
-        :neutron_admin_auth_url    => "http://127.0.0.3:35357/v2.0"
+        :neutron_admin_auth_url    => "http://127.0.0.3:35357/v2.0",
+        :security_group_api        => 'neutron'
       )
 
       should_not contain_class('neutron::server')

@@ -15,12 +15,16 @@
 # [nova_user_password] Auth password for nova user. Required.
 # [public_address] Public address where keystone can be accessed. Required.
 # [public_protocol] Public protocol over which keystone can be accessed. Defaults to 'http'
+# [token_format] Format keystone uses for tokens. Optional. Defaults to PKI.
+#   Supports PKI and UUID.
 # [db_type] Type of DB used. Currently only supports mysql. Optional. Defaults to  'mysql'
 # [db_user] Name of keystone db user. Optional. Defaults to  'keystone'
 # [db_name] Name of keystone DB. Optional. Defaults to  'keystone'
 # [admin_tenant] Name of keystone admin tenant. Optional. Defaults to  'admin'
 # [verbose] Log verbosely. Optional. Defaults to false.
 # [debug] Log at a debug-level. Optional. Defaults to false.
+# [token_driver] Driver to use for managing tokens.
+#   Optional.  Defaults to 'keystone.token.backends.sql.Token'
 # [bind_host] Address that keystone binds to. Optional. Defaults to  '0.0.0.0'
 # [internal_address] Internal address for keystone. Optional. Defaults to  $public_address
 # [admin_address] Keystone admin address. Optional. Defaults to  $internal_address
@@ -59,6 +63,7 @@ class openstack::keystone (
   $neutron_user_password,
   $public_address,
   $public_protocol          = 'http',
+  $token_format             = 'PKI',
   $db_host                  = '127.0.0.1',
   $idle_timeout             = '200',
   $swift_user_password      = false,
@@ -70,6 +75,7 @@ class openstack::keystone (
   $debug                    = false,
   $bind_host                = '0.0.0.0',
   $region                   = 'RegionOne',
+  $token_driver             = 'keystone.token.backends.sql.Token',
   $internal_address         = false,
   $admin_address            = false,
   $glance_public_address    = false,
@@ -197,6 +203,8 @@ class openstack::keystone (
     idle_timeout   => $idle_timeout,
     catalog_type   => 'sql',
     admin_token    => $admin_token,
+    token_driver   => $token_driver,
+    token_format   => $token_format,
     enabled        => $enabled,
     sql_connection => $sql_conn,
   }
@@ -239,8 +247,6 @@ class openstack::keystone (
         admin_address    => $nova_admin_real,
         internal_address => $nova_internal_real,
         region           => $region,
-        # indicates that we should not create endpoints for nova-volumes
-        cinder           => true,
       }
     }
 

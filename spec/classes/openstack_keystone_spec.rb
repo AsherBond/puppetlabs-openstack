@@ -37,7 +37,9 @@ describe 'openstack::keystone' do
         :idle_timeout   => '200',
         :catalog_type   => 'sql',
         :admin_token    => 'token',
+        :token_format   => 'PKI',
         :enabled        => true,
+        :token_driver   => 'keystone.token.backends.sql.Token',
         :sql_connection => 'mysql://keystone:pass@127.0.0.1/keystone'
       )
       [ 'glance', 'cinder', 'neutron' ].each do |type|
@@ -54,8 +56,7 @@ describe 'openstack::keystone' do
         :public_address   => params[:public_address],
         :admin_address    => params[:public_address],
         :internal_address => params[:public_address],
-        :region           => 'RegionOne',
-        :cinder           => true
+        :region           => 'RegionOne'
       )
     end
   end
