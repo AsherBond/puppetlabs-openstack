@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 spec/fixtures/modules/*
 spec/fixtures/manifests/*
 *swp
 .vendor
 Gemfile.lock
 pkg
+=======
+examples/allinone/Puppetfile
+examples/multinode/Puppetfile
+>>>>>>> 569931f29725e1e4bd5ff80adcd5fb03444b0558

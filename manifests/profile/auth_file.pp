@@ -1,9 +1,9 @@
 # The profile to install an OpenStack specific mysql server
-class havana::profile::auth_file {
-  class { '::openstack::auth_file':
+class openstack::profile::auth_file {
+  class { '::openstack::resources::auth_file':
     admin_tenant    => 'admin',
-    admin_password  => hiera('havana::keystone::admin_password'),
-    region_name     => hiera('havana::region'),
-    controller_node => hiera('havana::controller::address::api'),
+    admin_password  => $::openstack::config::keystone_admin_password,
+    region_name     => $::openstack::config::region,
+    controller_node => $::openstack::config::controller_address_api,
   }
 }

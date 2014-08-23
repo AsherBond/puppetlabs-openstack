@@ -1,19 +1,19 @@
 # The profile to set up the Ceilometer API
 # For co-located api and worker nodes this appear
-# after havana::profile::ceilometer::agent
-class havana::profile::ceilometer::api {
-  havana::resources::controller { 'ceilometer': }
+# after openstack::profile::ceilometer::agent
+class openstack::profile::ceilometer::api {
+  openstack::resources::controller { 'ceilometer': }
 
-  havana::resources::firewall { 'Ceilometer API':
+  openstack::resources::firewall { 'Ceilometer API':
     port => '8777',
   }
 
   class { '::ceilometer::keystone::auth':
-    password         => hiera('havana::ceilometer::password'),
-    public_address   => hiera('havana::controller::address::api'),
-    admin_address    => hiera('havana::controller::address::management'),
-    internal_address => hiera('havana::controller::address::management'),
-    region           => hiera('havana::region'),
+    password         => $::openstack::config::ceilometer_password,
+    public_address   => $::openstack::config::controller_address_api,
+    admin_address    => $::openstack::config::controller_address_management,
+    internal_address => $::openstack::config::controller_address_management,
+    region           => $::openstack::config::region,
   }
 
   class { '::ceilometer::agent::central':
@@ -37,7 +37,7 @@ class havana::profile::ceilometer::api {
 
   class { '::ceilometer::collector': }
 
-  include ::havana::common::ceilometer
+  include ::openstack::common::ceilometer
 
   mongodb_database { 'ceilometer':
     ensure  => present,
@@ -48,7 +48,7 @@ class havana::profile::ceilometer::api {
   mongodb_user { 'ceilometer':
     ensure        => present,
     password_hash => mongodb_password('ceilometer', 'password'),
-    database      => ceilometer,
+    database      => 'ceilometer',
     roles         => ['readWrite', 'dbAdmin'],
     tries         => 10,
     require       => [Class['mongodb::server'], Class['mongodb::client']],

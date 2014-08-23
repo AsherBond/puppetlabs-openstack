@@ -1,63 +1,55 @@
 # The profile to install the Glance API and Registry services
 # Note that for this configuration API controls the storage,
 # so it is on the storage node instead of the control node
-class havana::profile::glance::api {
-  $api_network = hiera('havana::network::api')
+class openstack::profile::glance::api {
+  $api_network = $::openstack::config::network_api
   $api_address = ip_for_network($api_network)
 
-  $management_network = hiera('havana::network::management')
+  $management_network = $::openstack::config::network_management
   $management_address = ip_for_network($management_network)
 
-  $explicit_management_address = hiera('havana::storage::address::management')
-  $explicit_api_address = hiera('havana::storage::address::api')
+  $explicit_management_address = $::openstack::config::storage_address_management
+  $explicit_api_address = $::openstack::config::storage_address_api
 
-  $controller_address = hiera('havana::controller::address::management')
+  $controller_address = $::openstack::config::controller_address_management
 
   if $management_address != $explicit_management_address {
     fail("Glance Auth setup failed. The inferred location of Glance from
-    the havana::network::management hiera value is
+    the openstack::network::management hiera value is
     ${management_address}. The explicit address from
-    havana::storage::address::management is ${explicit_management_address}.
+    openstack::storage::address::management is ${explicit_management_address}.
     Please correct this difference.")
   }
 
   if $api_address != $explicit_api_address {
     fail("Glance Auth setup failed. The inferred location of Glance from
-    the havana::network::management hiera value is
+    the openstack::network::management hiera value is
     ${api_address}. The explicit address from
-    havana::storage::address::api is ${explicit_api_address}.
+    openstack::storage::address::api is ${explicit_api_address}.
     Please correct this difference.")
   }
 
-  havana::resources::firewall { 'Glance API': port      => '9292', }
-  havana::resources::firewall { 'Glance Registry': port => '9191', }
+  openstack::resources::firewall { 'Glance API': port      => '9292', }
+  openstack::resources::firewall { 'Glance Registry': port => '9191', }
 
-  class { '::glance::api':
-    keystone_password => hiera('havana::glance::password'),
-    auth_host         => hiera('havana::controller::address::management'),
-    keystone_tenant   => 'services',
-    keystone_user     => 'glance',
-    sql_connection    => $::havana::resources::connectors::glance,
-    registry_host     => hiera('havana::storage::address::management'),
-    verbose           => hiera('havana::verbose'),
-    debug             => hiera('havana::debug'),
-  }
+  include ::openstack::common::glance
 
   class { '::glance::backend::file': }
 
   class { '::glance::registry':
-    keystone_password => hiera('havana::glance::password'),
-    sql_connection    => $::havana::resources::connectors::glance,
-    auth_host         => hiera('havana::controller::address::management'),
+    keystone_password => $::openstack::config::glance_password,
+    sql_connection    => $::openstack::resources::connectors::glance,
+    auth_host         => $::openstack::config::controller_address_management,
     keystone_tenant   => 'services',
     keystone_user     => 'glance',
-    verbose           => hiera('havana::verbose'),
-    debug             => hiera('havana::debug'),
+    verbose           => $::openstack::config::verbose,
+    debug             => $::openstack::config::debug,
+    mysql_module      => '2.2',
   }
 
   class { '::glance::notify::rabbitmq': 
-    rabbit_password => hiera('havana::rabbitmq::password'),
-    rabbit_userid   => hiera('havana::rabbitmq::user'),
-    rabbit_host     => hiera('havana::controller::address::management'),
+    rabbit_password => $::openstack::config::rabbitmq_password,
+    rabbit_userid   => $::openstack::config::rabbitmq_user,
+    rabbit_host     => $::openstack::config::controller_address_management,
   }
 }

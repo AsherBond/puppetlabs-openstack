@@ -1,20 +1,21 @@
 # The profile to set up the Nova controller (several services)
-class havana::profile::nova::api {
-  havana::resources::controller { 'nova': }
-  havana::resources::database { 'nova': }
-  havana::resources::firewall { 'Nova API': port => '8774', }
-  havana::resources::firewall { 'Nova Metadata': port => '8775', }
-  havana::resources::firewall { 'Nova NoVncProxy': port => '6080', }
+class openstack::profile::nova::api {
+  openstack::resources::controller { 'nova': }
+  openstack::resources::database { 'nova': }
+  openstack::resources::firewall { 'Nova API': port => '8774', }
+  openstack::resources::firewall { 'Nova Metadata': port => '8775', }
+  openstack::resources::firewall { 'Nova EC2': port => '8773', }
+  openstack::resources::firewall { 'Nova S3': port => '3333', }
+  openstack::resources::firewall { 'Nova novnc': port => '6080', }
 
   class { '::nova::keystone::auth':
-    password         => hiera('havana::nova::password'),
-    public_address   => hiera('havana::controller::address::api'),
-    admin_address    => hiera('havana::controller::address::management'),
-    internal_address => hiera('havana::controller::address::management'),
-    region           => hiera('havana::region'),
+    password         => $::openstack::config::nova_password,
+    public_address   => $::openstack::config::controller_address_api,
+    admin_address    => $::openstack::config::controller_address_management,
+    internal_address => $::openstack::config::controller_address_management,
+    region           => $::openstack::config::region,
     cinder           => true,
   }
 
-  include ::havana::common::nova
+  include ::openstack::common::nova
 }
-

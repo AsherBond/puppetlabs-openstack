@@ -1,23 +1,23 @@
 # The profile for installing the Cinder API
-class havana::profile::cinder::api {
+class openstack::profile::cinder::api {
 
-  havana::resources::controller { 'cinder': }
-  havana::resources::database { 'cinder': }
-  havana::resources::firewall { 'Cinder API': port => '8776', }
+  openstack::resources::controller { 'cinder': }
+  openstack::resources::database { 'cinder': }
+  openstack::resources::firewall { 'Cinder API': port => '8776', }
 
   class { '::cinder::keystone::auth':
-    password         => hiera('havana::cinder::password'),
-    public_address   => hiera('havana::controller::address::api'),
-    admin_address    => hiera('havana::controller::address::management'),
-    internal_address => hiera('havana::controller::address::management'),
-    region           => hiera('havana::region'),
+    password         => $::openstack::config::cinder_password,
+    public_address   => $::openstack::config::controller_address_api,
+    admin_address    => $::openstack::config::controller_address_management,
+    internal_address => $::openstack::config::controller_address_management,
+    region           => $::openstack::config::region,
   }
 
-  include ::havana::common::cinder
+  include ::openstack::common::cinder
 
   class { '::cinder::api':
-    keystone_password  => hiera('havana::cinder::password'),
-    keystone_auth_host => hiera('havana::controller::address::management'),
+    keystone_password  => $::openstack::config::cinder_password,
+    keystone_auth_host => $::openstack::config::controller_address_management,
     enabled            => true,
   }
 

@@ -24,27 +24,47 @@ The IP address reservation is
 * 0.0.0.2  : VMWare Router
 * 0.0.0.3  : Puppet Master
 * 0.0.0.4  : OS Controller
-* 0.0.0.5  : OS Storage
-* 0.0.0.6  : OS Networking
-* 0.0.0.7  : OS Compute
 * 0.0.0.8  : Swift Storage Zone 1
 * 0.0.0.9  : Swift Storage Zone 2
 * 0.0.0.10 : Swift Storage Zone 3
+* 0.0.0.11 : Tempest
 
 Vagrant needs the hostfile plugin installed:
 
 ```
-vagrant plugin install vagrant-hostfile
+vagrant plugin install vagrant-hostmanager
 ```
 
-It's assumed that you've installed a Red Hat family Vagrant
-box, and have installed the latest version of Puppet from
-the [Puppet Labs Repository](http://docs.puppetlabs.com/guides/puppetlabs_package_repositories.html).
+The Vagrantfile will automatically download a prepared CentOS box for you.
+You can bring up the entire Swift cluster with the firstrun.sh script.
 
-If you want to bring OpenStack up without Swift, use and look at the firstrun.sh script.
-If you want to bring up Swift, use and look at the swiftrun.sh script.
 
-For development, you can redeploy.sh script
+You need to have R10K installed. You can use the one provided by the rubygem.
+
+```
+ruby gem install R10K
+```
+
+Using R10K, module dependencies are automatically downloaded and the root of the module
+directory is attached to the virtual machines. This can help with module development.
+Any changes you make to the module will appear on the Puppet master. Additionally,
+using the Python script in the ../../tools directory you can apply pending patches
+from Stackforge to the dependencies, giving you an opportunity to test out changes
+before they're merged. To try it out use the command:
+
+```
+python ../../tools/review_checkout.py -u <gerrit_username> -c <review_id>
+```
+
+The <review_id> refers to the URL for OpenStack Gerrit. So, if your review was located at 
+https://review.openstack.org/#/c/81989/ the `<review_id>` would be 81989.
+
+Running the script will produce output that is itself a script. You can apply the patch by
+piping it to a shell.
+
+```
+python ../../tools/review_checkout.py -u <gerrit_username> -c <review_id> | sh
+```
 
 You can log into your console through the API network and the
 [Horizon interface](http://192.168.11.4).

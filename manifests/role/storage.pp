@@ -1,5 +1,7 @@
-class havana::role::storage inherits ::havana::role {
-  class { '::havana::profile::firewall': }
-  class { '::havana::profile::glance::api': }
-  class { '::havana::profile::cinder::volume': }
+class openstack::role::storage inherits ::openstack::role {
+  class { '::openstack::profile::firewall': }
+  class { '::openstack::profile::glance::api': }
+  class { '::openstack::profile::cinder::volume': }
+
+  class { '::openstack::setup::cirros': }
 }

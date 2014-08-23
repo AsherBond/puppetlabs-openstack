@@ -1,13 +1,20 @@
-class havana::setup::sharednetwork {
+# A static class to set up a shared network. Should appear on the
+# controller node. It sets up the public network, a private network,
+# two subnets (one for admin, one for test), and the routers that
+# connect the subnets to the public network.
+#
+# After this class has run, you should have a functional network
+# avaiable for your test user to launch and connect machines to.
+class openstack::setup::sharednetwork {
 
-  $external_network = hiera('havana::network::external')
-  $start_ip = hiera('havana::network::external::ippool::start')
-  $end_ip   = hiera('havana::network::external::ippool::end')
+  $external_network = $::openstack::config::network_external
+  $start_ip = $::openstack::config::network_external_ippool_start
+  $end_ip   = $::openstack::config::network_external_ippool_end
   $ip_range = "start=${start_ip},end=${end_ip}"
-  $gateway  = hiera('havana::network::external::gateway')
-  $dns      = hiera('havana::network::external::dns')
+  $gateway  = $::openstack::config::network_external_gateway
+  $dns      = $::openstack::config::network_external_dns
 
-  $private_network = hiera('havana::network::neutron::private')
+  $private_network = $::openstack::config::network_neutron_private
 
   neutron_network { 'public':
     tenant_name              => 'services',
@@ -45,6 +52,5 @@ class havana::setup::sharednetwork {
     dns_nameservers  => [$dns],
   } 
 
-  havana::setup::router { 'services': }
-  havana::setup::router { 'test': }
+  openstack::setup::router { "test:${private_network}": }
 }
